@@ -1,137 +1,152 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { motion, AnimatePresence } from "framer-motion"
+import { useCallback, useEffect, useRef, useState } from "react"
 import Image from "next/image"
+import { AnimatePresence, motion } from "framer-motion"
+import { heroSlides } from "@/lib/data"
+import { profile } from "@/lib/images"
 
-interface CarouselImage {
-    src: string
-    alt: string
-}
-
-const carouselImages: CarouselImage[] = [
-    {
-        src: "/images/hero/Nora-Fatehi-10.jpg",
-        alt: "Nora Fatehi - Professional Photoshoot 1"
-    },
-    {
-        src: "/images/hero/Nora-Fatehi-6-12.jpg",
-        alt: "Nora Fatehi - Professional Photoshoot 2"
-    },
-    {
-        src: "/images/hero/fff.jpeg",
-        alt: "Nora Fatehi - Professional Photoshoot 3"
-    },
-    {
-        src: "/images/hero/images (3).jpeg",
-        alt: "Nora Fatehi - Professional Photoshoot 4"
-    }
-]
+const DURATION = 6500
 
 export default function HeroCarousel() {
-    const [currentIndex, setCurrentIndex] = useState(0)
+  const [index, setIndex] = useState(0)
+  const [paused, setPaused] = useState(false)
+  const touchStart = useRef<number | null>(null)
 
-    useEffect(() => {
-        const interval = setInterval(() => {
-            setCurrentIndex((prev) => (prev + 1) % carouselImages.length)
-        }, 5000)
+  const go = useCallback(
+    (delta: number) =>
+      setIndex((prev) => (prev + delta + heroSlides.length) % heroSlides.length),
+    [],
+  )
 
-        return () => clearInterval(interval)
-    }, [])
+  useEffect(() => {
+    if (paused) return
+    const timer = setTimeout(() => go(1), DURATION)
+    return () => clearTimeout(timer)
+  }, [index, paused, go])
 
-    const goToSlide = (index: number) => {
-        setCurrentIndex(index)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "ArrowLeft") go(-1)
+      if (e.key === "ArrowRight") go(1)
     }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [go])
 
-    const goToPrevious = () => {
-        setCurrentIndex((prev) =>
-            prev === 0 ? carouselImages.length - 1 : prev - 1
-        )
-    }
+  const slide = heroSlides[index]
 
-    const goToNext = () => {
-        setCurrentIndex((prev) => (prev + 1) % carouselImages.length)
-    }
+  return (
+    <div
+      className="absolute inset-0 h-full w-full"
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+      onTouchStart={(e) => (touchStart.current = e.touches[0].clientX)}
+      onTouchEnd={(e) => {
+        if (touchStart.current === null) return
+        const delta = e.changedTouches[0].clientX - touchStart.current
+        if (Math.abs(delta) > 60) go(delta < 0 ? 1 : -1)
+        touchStart.current = null
+      }}
+      aria-roledescription="carousel"
+    >
+      <AnimatePresence initial={false}>
+        <motion.div
+          key={index}
+          initial={{ opacity: 0, scale: 1.12 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{
+            opacity: { duration: 1.1, ease: "easeInOut" },
+            // Slow Ken Burns push runs for the whole slide, not just the fade.
+            scale: { duration: DURATION / 1000 + 1.2, ease: "linear" },
+          }}
+          className="absolute inset-0"
+        >
+          <Image
+            src={profile(slide.src, "original")}
+            alt={slide.alt}
+            fill
+            priority={index === 0}
+            quality={90}
+            sizes="100vw"
+            style={{ objectPosition: slide.focus }}
+            className="object-cover"
+          />
+        </motion.div>
+      </AnimatePresence>
 
-    return (
-        <div className="absolute inset-0 w-full h-full">
-            <div className="relative w-full h-full">
-                <AnimatePresence mode="wait">
-                    <motion.div
-                        key={currentIndex}
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        transition={{ duration: 1 }}
-                        className="absolute inset-0"
-                    >
-                        <Image
-                            src={carouselImages[currentIndex].src}
-                            alt={carouselImages[currentIndex].alt}
-                            fill
-                            priority={currentIndex === 0}
-                            className="object-cover object-center"
-                            quality={75}
-                            sizes="100vw"
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-br from-noir-950/70 via-noir-900/60 to-gold-900/40" />
-                    </motion.div>
-                </AnimatePresence>
-            </div>
+      {/* Legibility scrim — heavier at the edges so the headline always reads. */}
+      <div className="absolute inset-0 bg-gradient-to-b from-noir-950/80 via-noir-950/45 to-noir-950" />
+      <div className="absolute inset-0 bg-gradient-to-r from-noir-950/70 via-transparent to-noir-950/50" />
 
-            <button
-                onClick={goToPrevious}
-                className="absolute left-4 md:left-8 top-1/2 -translate-y-1/2 z-30 bg-noir-950/50 hover:bg-noir-950/80 backdrop-blur-sm text-gold-400 p-3 md:p-4 rounded-full transition-all duration-300 hover:scale-110"
-                aria-label="Previous image"
-            >
-                <svg
-                    className="w-6 h-6 md:w-8 md:h-8"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                >
-                    <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M15 19l-7-7 7-7"
-                    />
-                </svg>
-            </button>
+      {/* Slide caption — pinned to the corner so it never collides with the hero stack. */}
+      <div className="pointer-events-none absolute bottom-7 left-4 z-30 hidden max-w-[38%] md:block md:left-8">
+        <AnimatePresence mode="wait">
+          <motion.p
+            key={slide.kicker}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -12 }}
+            transition={{ duration: 0.5 }}
+            className="border-l-2 border-gold-500/50 pl-3 text-[11px] uppercase tracking-[0.35em] text-gold-300/80"
+          >
+            {slide.kicker}
+          </motion.p>
+        </AnimatePresence>
+      </div>
 
-            <button
-                onClick={goToNext}
-                className="absolute right-4 md:right-8 top-1/2 -translate-y-1/2 z-30 bg-noir-950/50 hover:bg-noir-950/80 backdrop-blur-sm text-gold-400 p-3 md:p-4 rounded-full transition-all duration-300 hover:scale-110"
-                aria-label="Next image"
-            >
-                <svg
-                    className="w-6 h-6 md:w-8 md:h-8"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                >
-                    <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 5l7 7-7 7"
-                    />
-                </svg>
-            </button>
+      <ArrowButton side="left" onClick={() => go(-1)} />
+      <ArrowButton side="right" onClick={() => go(1)} />
 
-            <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-30 flex gap-3">
-                {carouselImages.map((_, index) => (
-                    <button
-                        key={index}
-                        onClick={() => goToSlide(index)}
-                        className={`w-2 h-2 md:w-3 md:h-3 rounded-full transition-all duration-300 ${index === currentIndex
-                            ? "bg-gold-400 w-8 md:w-12"
-                            : "bg-gold-400/30 hover:bg-gold-400/50"
-                            }`}
-                        aria-label={`Go to slide ${index + 1}`}
-                    />
-                ))}
-            </div>
-        </div>
-    )
+      <div className="absolute bottom-8 left-1/2 z-30 flex -translate-x-1/2 gap-2.5">
+        {heroSlides.map((s, i) => (
+          <button
+            key={s.src}
+            onClick={() => setIndex(i)}
+            aria-label={`Go to slide ${i + 1}`}
+            aria-current={i === index}
+            className="group relative h-2.5 w-2.5 rounded-full"
+          >
+            <span
+              className={`absolute inset-0 rounded-full transition-all duration-300 ${
+                i === index ? "bg-gold-400" : "bg-gold-400/30 group-hover:bg-gold-400/60"
+              }`}
+            />
+          </button>
+        ))}
+      </div>
+
+      {/* Progress bar doubles as the timer readout. */}
+      <div className="absolute bottom-0 left-0 z-30 h-0.5 w-full bg-gold-500/10">
+        <motion.div
+          key={`${index}-${paused}`}
+          initial={{ scaleX: 0 }}
+          animate={{ scaleX: paused ? 0 : 1 }}
+          transition={{ duration: paused ? 0 : DURATION / 1000, ease: "linear" }}
+          className="h-full origin-left bg-gold-500/70"
+        />
+      </div>
+    </div>
+  )
+}
+
+function ArrowButton({ side, onClick }: { side: "left" | "right"; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      aria-label={side === "left" ? "Previous image" : "Next image"}
+      className={`absolute top-1/2 z-30 hidden -translate-y-1/2 rounded-full border border-gold-500/20 bg-noir-950/40 p-3 text-gold-400 backdrop-blur-sm transition-all duration-300 hover:scale-110 hover:bg-noir-950/70 hover:text-gold-200 sm:block ${
+        side === "left" ? "left-4 md:left-8" : "right-4 md:right-8"
+      }`}
+    >
+      <svg className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d={side === "left" ? "M15 19l-7-7 7-7" : "M9 5l7 7-7 7"}
+        />
+      </svg>
+    </button>
+  )
 }

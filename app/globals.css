@@ -48,6 +48,7 @@
   --animate-fade-in: fadeIn 0.8s ease-in;
   --animate-scale-in: scaleIn 0.4s ease-out;
   --animate-shimmer: shimmer 2s linear infinite;
+  --animate-marquee: marquee 38s linear infinite;
 }
 
 @keyframes slideUp {
@@ -92,6 +93,15 @@
   }
 }
 
+@keyframes marquee {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
 @keyframes shimmer {
   0% {
     background-position: -1000px 0;
@@ -102,10 +112,42 @@
 }
 
 @layer base {
+  html {
+    color-scheme: dark;
+  }
+
   body {
     font-family: var(--font-sans);
+    background-color: var(--color-noir-950);
+    color: var(--color-noir-100);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* The navbar is fixed, so anchored sections need to clear it. */
+  section[id] {
+    scroll-margin-top: 5rem;
+  }
+
+  ::selection {
+    background: var(--color-gold-500);
+    color: var(--color-noir-950);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-gold-400);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
   }
 
   h1,
